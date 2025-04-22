@@ -1,5 +1,6 @@
 import prisma from "../config/database.js";
 import CustomError from "../utils/custom_error.js";
+import bcrypt from "bcryptjs";
 
 export default class UserService {
     constructor() {
@@ -41,29 +42,45 @@ export default class UserService {
     }
 
     async create(data) {
-        const user = await this.prisma.user.create({
-            data,
-            select: {
-                id: true,
-                first_name: true,
-                last_name: true,
-                username: true,
-                password: false,
-                created_at: true,
-                updated_at: true,
-            },
-        });
+        try {
+            const hashedPassword = await bcrypt.hash(data.password, 12);
+            data = { ...data, password: hashedPassword };
+            const user = await this.prisma.user.create({
+                data,
+                select: {
+                    id: true,
+                    first_name: true,
+                    last_name: true,
+                    username: true,
+                    password: false,
+                    created_at: true,
+                    updated_at: true,
+                },
+            });
 
-        return user;
+            return user;
+        } catch (error) {
+            if (error.code == "P2002") {
+                throw new CustomError("username already exists", 400);
+            }
+            throw error;
+        }
     }
 
     async update(id, data) {
-        const updatedUser = await this.prisma.user.update({
-            where: { id },
-            data,
-        });
+        try {
+            const updatedUser = await this.prisma.user.update({
+                where: { id },
+                data,
+            });
 
-        return updatedUser;
+            return updatedUser;
+        } catch (error) {
+            if (error.code == "P2002") {
+                throw new CustomError("username already exists", 400);
+            }
+            throw error;
+        }
     }
 
     async delete(id) {
